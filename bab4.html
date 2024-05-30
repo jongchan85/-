@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>식사 인원 조사</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            background-color: #f8f9fa;
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .sidebar {
+            width: 100%;
+            background-color: #343a40;
+            color: white;
+            text-align: center;
+            padding: 10px;
+        }
+        .sidebar a {
+            color: white;
+            text-decoration: none;
+            display: inline-block;
+            margin: 10px 20px;
+            font-weight: bold;
+        }
+        .container {
+            max-width: 600px;
+            margin: 20px auto;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 10px;
+            background-color: white;
+        }
+        .menu-item, .name-item {
+            margin-bottom: 10px;
+        }
+        label, select, button {
+            display: block;
+            width: 100%;
+            margin: 10px 0;
+        }
+        .name-item span {
+            cursor: pointer;
+            text-decoration: underline;
+        }
+    </style>
+    <!-- Firebase Configuration -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-analytics.js"></script>
+    <script>
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_PROJECT_ID.appspot.com",
+            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+            appId: "YOUR_APP_ID",
+            measurementId: "YOUR_MEASUREMENT_ID"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const analytics = firebase.analytics();
+
+        let namesList = [];
+        const currentDate = new Date().toISOString().split('T')[0];
+
+        // 이름 추가 함수
+        function addName() {
+            const name = document.getElementById('nameInput').value;
+            if (name) {
+                namesList.push(name);
+                updateNames();
+                document.getElementById('nameInput').value = '';
+            }
+        }
+
+        // 이름 제거 함수
+        function removeName(name) {
+            namesList = namesList.filter(n => n !== name);
+            updateNames();
+        }
+
+        // 이름 목록 업데이트 함수
+        function updateNames() {
+            const namesDiv = document.getElementById('names');
+            namesDiv.innerHTML = '';
+            namesList.forEach(name => {
+                namesDiv.innerHTML += `
+                    <div class="name-item">
+                        <span onclick="showMenu('${name}')">${name}</span>
+                        <button onclick="removeName('${name}')">삭제</button>
+                        <div id="${name}-menu" class="menu-item" style="display:none;">
+                            <span class="menu-header">점심</span>
+                            <select id="${name}-lunch">
+                                <option value="">선택</option>
+                                <option value="점심 도시락">점심 도시락</option>
+                                <option value="점심 샐러드">점심 샐러드</option>
+                                <option value="점심 샌드위치">점심 샌드위치</option>
+                            </select>
+                            <span class="menu-header">저녁</span>
+                            <select id="${name}-dinner">
+                                <option value="">선택</option>
+                                <option value="저녁 도시락">저녁 도시락</option>
+                                <option value="저녁 샐러드">저녁 샐러드</option>
+                                <option value="저녁 샌드위치">저녁 샌드위치</option>
+                                <option value="저녁 외부 식사">저녁 외부 식사</option>
+                            </select>
+                        </div>
+                    </div>`;
+            });
+        }
+
+        // 메뉴 표시 함수
+        function showMenu(name) {
+            const menuDiv = document.getElementById(`${name}-menu`);
+            menuDiv.style.display = menuDiv.style.display === 'none' ? 'block' : 'none';
+        }
+
+        // 데이터 수집 및 저장 함수
+        function collectMealData() {
+            const mealData = namesList.map(name => ({
+                name,
+                lunch: document.getElementById(`${name}-lunch`).value,
+                dinner: document.getElementById(`${name}-dinner`).value
+            })).filter(entry => entry.lunch || entry.dinner);
+
+            db.collection("meals").doc(currentDate).set({ mealData })
+                .then(() => alert("데이터가 저장되었습니다."))
+                .catch(error => console.error("Error writing document: ", error));
+        }
+
+        // 관리자 인터페이스 표시 함수
+        function showAdmin() {
+            document.getElementById('userContainer').style.display = 'none';
+            document.getElementById('adminContainer').style.display = 'block';
+            loadDates();
+        }
+
+        // 날짜 목록 로드 함수
+        function loadDates() {
+            const datesDiv = document.getElementById('dates');
+            datesDiv.innerHTML = '';
+
+            db.collection("meals").get().then(querySnapshot => {
+                querySnapshot.forEach(doc => {
+                    datesDiv.innerHTML += `<div class="date-item"><button onclick="loadMealData('${doc.id}')">${doc.id}</button></div>`;
+                });
+            });
+        }
+
+        // 특정 날짜의 데이터 로드 함수
+        function loadMealData(date) {
+            db.collection("meals").doc(date).get().then(doc => {
+                if (doc.exists) {
+                    const mealData = doc.data().mealData;
+                    const mealCounts = {};
+
+                    mealData.forEach(({ name, lunch, dinner }) => {
+                        if (lunch) {
+                            mealCounts[lunch] = mealCounts[lunch] ? [...mealCounts[lunch], `${name} (점심)`] : [`${name} (점심)`];
+                        }
+                        if (dinner) {
+                            mealCounts[dinner] = mealCounts[dinner] ? [...mealCounts[dinner], `${name} (저녁)`] : [`${name} (저녁)`];
+                        }
+                    });
+
+                    const resultText = `<h2>${date}의 결과:</h2><p>각 메뉴별 인원:</p><ul>` +
+                        Object.entries(mealCounts).map(([meal, names]) => `<li>${meal}: ${names.length}명 - ${names.join(", ")}</li>`).join('') +
+                        "</ul>";
+
+                    document.getElementById("adminResult").innerHTML = resultText;
+                } else {
+                    console.log("No such document!");
+                }
+            }).catch(error => {
+                console.log("Error getting document:", error);
+            });
+        }
+    </script>
+</head>
+<body>
+    <div class="sidebar">
+        <a href="#userContainer" onclick="document.getElementById('userContainer').style.display = 'block'; document.getElementById('adminContainer').style.display = 'none';">사용자</a>
+        <a href="#adminContainer" onclick="showAdmin()">관리자</a>
+    </div>
+    <div id="userContainer" class="container">
+        <h1>식사 인원 조사</h1>
+        <p>관리자가 이름을 입력하세요:</p>
+        <input type="text" id="nameInput">
+        <button onclick="addName()">이름 추가</button>
+        <div id="names"></div>
+        <button onclick="collectMealData()">제출</button>
+    </div>
+    <div id="adminContainer" class="container" style="display: none;">
+        <h1>식사 인원 조사 - 관리자용</h1>
+        <div id="dates"></div>
+        <div id="adminResult"></div>
+    </div>
+</body>
+</html>
