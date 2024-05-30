@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>식사 인원 조사</title>
+    <style>
+        body {
+            background-color: white;
+            font-family: Arial, sans-serif;
+        }
+        .container {
+            max-width: 600px;
+            margin: auto;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 10px;
+            box-shadow: 2px 2px 12px rgba(0, 0, 0, 0.1);
+        }
+        .menu-item, .name-item {
+            margin-bottom: 10px;
+        }
+        label {
+            display: inline-block;
+            width: 150px;
+        }
+        input, select {
+            width: 150px;
+        }
+        button {
+            margin-left: 10px;
+        }
+        #result {
+            margin-top: 20px;
+        }
+        .menu-header {
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        .name-item {
+            display: flex;
+            align-items: center;
+        }
+        .name-item select {
+            margin-right: 10px;
+        }
+    </style>
+    <script>
+        let namesList = [];
+
+        function addName() {
+            const name = document.getElementById('nameInput').value;
+            if (name) {
+                namesList.push(name);
+                updateNames();
+                document.getElementById('nameInput').value = '';
+            }
+        }
+
+        function removeName(name) {
+            namesList = namesList.filter(n => n !== name);
+            updateNames();
+        }
+
+        function updateNames() {
+            const namesDiv = document.getElementById('names');
+            namesDiv.innerHTML = '';
+            namesList.forEach(name => {
+                const nameItem = document.createElement('div');
+                nameItem.className = 'name-item';
+                nameItem.innerHTML = `
+                    ${name}: 
+                    <span class="menu-header">점심</span>
+                    <select id="${name}-lunch">
+                        <option value="">선택</option>
+                        <option value="점심 도시락">점심 도시락</option>
+                        <option value="점심 샐러드">점심 샐러드</option>
+                        <option value="점심 샌드위치">점심 샌드위치</option>
+                    </select>
+                    <span class="menu-header">저녁</span>
+                    <select id="${name}-dinner">
+                        <option value="">선택</option>
+                        <option value="저녁 도시락">저녁 도시락</option>
+                        <option value="저녁 샐러드">저녁 샐러드</option>
+                        <option value="저녁 샌드위치">저녁 샌드위치</option>
+                        <option value="저녁 외부 식사">저녁 외부 식사</option>
+                    </select>
+                    <button onclick="removeName('${name}')">삭제</button>`;
+                namesDiv.appendChild(nameItem);
+            });
+        }
+
+        function collectMealData() {
+            let mealCounts = {};
+            let totalPeople = namesList.length * 2; // 점심과 저녁 각 1명씩이므로 2배
+            let totalCount = 0;
+
+            namesList.forEach(name => {
+                let lunch = document.getElementById(`${name}-lunch`).value;
+                let dinner = document.getElementById(`${name}-dinner`).value;
+                
+                if (lunch) {
+                    if (!mealCounts[lunch]) {
+                        mealCounts[lunch] = [];
+                    }
+                    mealCounts[lunch].push(name + " (점심)");
+                    totalCount++;
+                }
+
+                if (dinner) {
+                    if (!mealCounts[dinner]) {
+                        mealCounts[dinner] = [];
+                    }
+                    mealCounts[dinner].push(name + " (저녁)");
+                    totalCount++;
+                }
+            });
+
+            let resultText = "";
+            if (totalCount === totalPeople) {
+                resultText += "<p>입력한 인원이 정확합니다!</p>";
+            } else {
+                resultText += `<p>입력한 총 인원 수가 ${totalPeople / 2}명이 아닙니다. 현재 입력된 총 인원 수: ${totalCount / 2}명</p>`;
+            }
+
+            resultText += "<p>각 메뉴별 인원:</p><ul>";
+            for (let meal in mealCounts) {
+                resultText += `<li>${meal}: ${mealCounts[meal].length}명 - ${mealCounts[meal].join(", ")}</li>`;
+            }
+            resultText += "</ul>";
+
+            resultText += "<p>Thanks for watching!</p>";
+
+            document.getElementById("result").innerHTML = resultText;
+        }
+    </script>
+</head>
+<body>
+    <div class="container">
+        <h1>식사 인원 조사</h1>
+        <p>관리자가 이름을 입력하세요:</p>
+        <input type="text" id="nameInput">
+        <button onclick="addName()">이름 추가</button>
+        <div id="names"></div>
+        <button onclick="collectMealData()">제출</button>
+        <div id="result"></div>
+    </div>
+</body>
+</html>
